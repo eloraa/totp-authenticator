@@ -1,94 +1,124 @@
-# Authinticator Server API Documentation
+# Authinticator Server
 
-## Authentication
-All endpoints except `/health` require a valid session token in a cookie. The cookie key can be either `better-auth.session_token` or `session_token`. The value must be a signed token in the format `<token>.<signature>`, verified using HMAC-SHA256 and a server-side secret. The token is then checked against the `session` table in Postgres.
+A secure TOTP (Time-based One-Time Password) authentication service built with Go, providing real-time 2FA code generation and management.
 
----
+## Features
 
-## Endpoints
+- **TOTP Code Generation**: Generate time-based one-time passwords for multiple services
+- **Real-time Updates**: WebSocket support for live code updates
+- **Secure Authentication**: Session-based authentication with HMAC-SHA256 signed tokens
+- **Migration Support**: Import from Google Authenticator and other TOTP apps via QR codes
+- **RESTful API**: Clean HTTP endpoints for service management
+- **PostgreSQL Integration**: Persistent storage for user services and sessions
 
-### GET /health
-- **Description:** Check server status.
-- **Auth:** None
-- **Response:**
-  - `200 OK` with body `OK`
+## Tech Stack
 
-### GET /list
-- **Description:** List all added authentication services.
-- **Auth:** Required (session cookie)
-- **Response:**
-  - `200 OK` JSON array of services:
-    ```json
-    [
-      { "name": "Service Name", "key": "setup key" },
-      ...
-    ]
-    ```
+- **Backend**: Go 1.23+ with Gin web framework
+- **Database**: PostgreSQL with pgx driver
+- **WebSockets**: Gorilla WebSocket for real-time updates
+- **TOTP**: pquerna/otp library for code generation
+- **CORS**: Configurable cross-origin resource sharing
+- **Deployment**: Docker and Vercel ready
 
-### POST /add
-- **Description:** Add a new authentication service.
-- **Auth:** Required (session cookie)
-- **Request Body:**
-  - JSON object:
-    ```json
-    {
-      "name": "Service Name",
-      "key": "setup key or QR code data"
-    }
-    ```
-- **Response:**
-  - `201 Created` with body `Added` on success
-  - `400 Bad Request` if missing fields or invalid JSON
+## Quick Start
 
-### WebSocket /ws
-- **Description:** Real-time TOTP code updates for all added services.
-- **Auth:** Required (session cookie)
-- **Protocol:** WebSocket
-- **Response:**
-  - Every second, sends a JSON array:
-    ```json
-    [
-      { "name": "Service Name", "code": "123456" },
-      ...
-    ]
-    ```
+### Prerequisites
 
-### GET /code
-- **Description:** Get current TOTP codes for the authenticated user. Supports optional filtering by service `id` or `name`.
-- **Auth:** Required (session cookie)
-- **Query Parameters:**
-  - `id` (optional): Filter by service ID
-  - `name` (optional): Filter by service name
-  - If neither is provided, returns codes for all of the user's services.
-- **Response:**
-  - `200 OK` JSON array of codes:
-    ```json
-    [
-      {
-        "id": "service-id-1",
-        "name": "Service Name",
-        "code": "123456",
-        "expires_at": "2025-07-24T12:34:56Z"
-      },
-      ...
-    ]
-    ```
+- Go 1.23 or higher
+- PostgreSQL database
+- Environment variables configured
 
-### DELETE /delete
-- **Description:** Delete an authentication service by its `id` for the current user.
-- **Auth:** Required (session cookie)
-- **Query Parameters:**
-  - `id` (required): The service ID to delete
-- **Response:**
-  - `200 OK` with body `{ "message": "Deleted" }` on success
-  - `400 Bad Request` if missing id
-  - `404 Not Found` if the service does not exist or does not belong to the user
-  - `500 Internal Server Error` on DB error
+### Installation
 
----
+1. Clone the repository
+2. Install dependencies:
+   ```bash
+   go mod download
+   ```
 
+3. Set up environment variables (see Configuration section)
 
-## Notes
-- The `/list`, `/add`, and `/ws` endpoints require a valid session token as described above.
-- The service list is in-memory and not persisted.
-- TOTP codes are generated using the provided setup key for each service. 
+4. Run database migrations:
+   ```bash
+   pnpm run migrate
+   ```
+
+5. Start the server:
+   ```bash
+   pnpm start
+   ```
+
+### Development
+
+```bash
+# Start development server
+pnpm start
+
+# Build for production
+pnpm run build:prod
+
+# Run linting
+pnpm run lint
+```
+
+## Configuration
+
+Create a `.env` file with the following variables:
+
+```env
+DATABASE_URL=postgres://username:password@localhost:5432/dbname?sslmode=disable
+SESSION_SECRET=your-secure-session-secret
+LISTEN_ADDR=:8080
+DEBUG=false
+CORS_ORIGINS=*
+CORS_METHODS=GET,POST,PUT,DELETE,OPTIONS
+CORS_HEADERS=Authorization,Content-Type,Origin,Accept
+```
+
+## API Endpoints
+
+### Health Check
+- `GET /health` - Server status check (no auth required)
+
+### Authentication Services
+- `GET /list` - List all user's authentication services
+- `POST /add` - Add new authentication service
+- `DELETE /delete?id=<service-id>` - Remove authentication service
+
+### TOTP Codes
+- `GET /code` - Get current TOTP codes (supports filtering by id/name)
+- `GET /ws` - WebSocket endpoint for real-time code updates
+
+### Authentication
+All endpoints except `/health` require a valid session token cookie (`better-auth.session_token` or `session_token`).
+
+## Docker Support
+
+Use the included `docker-compose.yml` for local PostgreSQL:
+
+```bash
+docker-compose up -d
+```
+
+## Deployment
+
+### Vercel
+The project includes Vercel configuration for serverless deployment.
+
+### Production Build
+```bash
+pnpm run build:prod
+```
+
+## Security Features
+
+- HMAC-SHA256 signed session tokens
+- Secure TOTP secret validation
+- CORS protection
+- SQL injection prevention with parameterized queries
+- Environment-based configuration
+
+## License
+
+MIT License
+
