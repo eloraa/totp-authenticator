@@ -16,23 +16,25 @@ var (
 )
 
 type Server struct {
-	DB          *sql.DB
-	Secret      string
-	Engine      *gin.Engine
-	Debug       bool
-	CORSOrigins []string
-	CORSMethods []string
-	CORSHeaders []string
+	DB             *sql.DB
+	Secret         string
+	Engine         *gin.Engine
+	Debug          bool
+	CORSOrigins    []string
+	CORSMethods    []string
+	CORSHeaders    []string
+	KeyEncryptSalt string
 }
 
-func NewServer(db *sql.DB, secret string, debug bool, corsOrigins, corsMethods, corsHeaders []string) *Server {
+func NewServer(db *sql.DB, secret string, debug bool, corsOrigins, corsMethods, corsHeaders []string, keyEncryptSalt string) *Server {
 	s := &Server{
-		DB:          db,
-		Secret:      secret,
-		Debug:       debug,
-		CORSOrigins: corsOrigins,
-		CORSMethods: corsMethods,
-		CORSHeaders: corsHeaders,
+		DB:             db,
+		Secret:         secret,
+		Debug:          debug,
+		CORSOrigins:    corsOrigins,
+		CORSMethods:    corsMethods,
+		CORSHeaders:    corsHeaders,
+		KeyEncryptSalt: keyEncryptSalt,
 	}
 	s.Engine = s.setupRouter()
 	return s
@@ -50,7 +52,7 @@ func GetServer() *Server {
 		if err != nil {
 			panic(err)
 		}
-		srv = NewServer(dbConn, cfg.SessionSecret, cfg.Debug, cfg.CORSOrigins, cfg.CORSMethods, cfg.CORSHeaders)
+		srv = NewServer(dbConn, cfg.SessionSecret, cfg.Debug, cfg.CORSOrigins, cfg.CORSMethods, cfg.CORSHeaders, cfg.KeyEncryptSalt)
 	})
 	return srv
 }

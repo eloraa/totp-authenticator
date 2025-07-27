@@ -1,4 +1,4 @@
-import { OneTapPrompt } from '@/components/auth/onetap-prompt';
+import { Header } from '@/components/auth/header';
 import { auth } from '@/lib/server/auth';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
@@ -15,8 +15,8 @@ export default async function AuthLayout({
   }
   return (
     <>
+      <Header className="text-white" />
       {children}
-      <OneTapPrompt />
     </>
   );
 }

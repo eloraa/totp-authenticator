@@ -52,6 +52,7 @@ func (s *Server) setupRouter() *gin.Engine {
 	engine.GET("/ws", s.withSession(s.handleWebsocket))
 	engine.GET("/code", s.withSession(s.handleCode))
 	engine.DELETE("/delete", s.withSession(s.handleDelete))
+	engine.GET("/export", s.withSession(s.handleExport))
 
 	return engine
 }
@@ -65,6 +66,7 @@ func (s *Server) handleHealth(c *gin.Context) {
 
 func (s *Server) handleList(c *gin.Context) {
 	userID := c.GetString("user_id")
+	includeKey := c.Query("include_key") == "true"
 	rows, err := s.DB.QueryContext(c.Request.Context(), "SELECT id, user_id, name, key, created_at, updated_at FROM auth_service WHERE user_id = $1", userID)
 	if err != nil {
 		if s.Debug {
@@ -74,7 +76,7 @@ func (s *Server) handleList(c *gin.Context) {
 		return
 	}
 	defer rows.Close()
-	var services []models.AuthService
+	var services []map[string]interface{}
 	for rows.Next() {
 		var svc models.AuthService
 		if err := rows.Scan(&svc.ID, &svc.UserID, &svc.Name, &svc.Key, &svc.CreatedAt, &svc.UpdatedAt); err != nil {
@@ -83,7 +85,22 @@ func (s *Server) handleList(c *gin.Context) {
 			}
 			continue
 		}
-		services = append(services, svc)
+		item := map[string]interface{}{
+			"id":         svc.ID,
+			"user_id":    svc.UserID,
+			"name":       svc.Name,
+			"created_at": svc.CreatedAt,
+			"updated_at": svc.UpdatedAt,
+		}
+		if includeKey {
+			encrypted, err := utils.EncryptKey(svc.Key, s.KeyEncryptSalt)
+			if err == nil {
+				item["key"] = encrypted
+			} else if s.Debug {
+				log.Printf("[DEBUG] Failed to encrypt key for %s: %v", svc.Name, err)
+			}
+		}
+		services = append(services, item)
 	}
 	c.JSON(200, services)
 }
@@ -243,6 +260,55 @@ func (s *Server) handleDelete(c *gin.Context) {
 		return
 	}
 	c.JSON(200, gin.H{"message": "Deleted"})
+}
+
+func (s *Server) handleExport(c *gin.Context) {
+	userID := c.GetString("user_id")
+	id := c.Query("id")
+	name := c.Query("name")
+
+	if id == "" && name == "" {
+		c.JSON(400, gin.H{"error": "Missing id or name parameter"})
+		return
+	}
+
+	query := "SELECT id, user_id, name, key FROM auth_service WHERE user_id = $1"
+	args := []interface{}{userID}
+	if id != "" {
+		query += " AND id = $2"
+		args = append(args, id)
+	} else if name != "" {
+		query += " AND name = $2"
+		args = append(args, name)
+	}
+
+	rows, err := s.DB.QueryContext(c.Request.Context(), query, args...)
+	if err != nil {
+		c.JSON(500, gin.H{"error": "Failed to fetch service"})
+		return
+	}
+	defer rows.Close()
+
+	var pairs [][2]string
+	for rows.Next() {
+		var sid, suid, sname, skey string
+		if err := rows.Scan(&sid, &suid, &sname, &skey); err != nil {
+			continue
+		}
+		pairs = append(pairs, [2]string{sname, skey})
+	}
+	if len(pairs) == 0 {
+		c.JSON(404, gin.H{"error": "Service not found or not owned by user"})
+		return
+	}
+
+	// Generate otpauth-migration URL
+	url, err := utils.GenerateMigrationURL(pairs)
+	if err != nil {
+		c.JSON(500, gin.H{"error": "Failed to generate migration URL"})
+		return
+	}
+	c.JSON(200, gin.H{"migration_url": url})
 }
 
 func (s *Server) withSession(next gin.HandlerFunc) gin.HandlerFunc {

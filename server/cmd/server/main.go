@@ -22,7 +22,7 @@ func main() {
 	}
 	defer dbConn.Close()
 
-	srv := server.NewServer(dbConn, cfg.SessionSecret, cfg.Debug, cfg.CORSOrigins, cfg.CORSMethods, cfg.CORSHeaders)
+	srv := server.NewServer(dbConn, cfg.SessionSecret, cfg.Debug, cfg.CORSOrigins, cfg.CORSMethods, cfg.CORSHeaders, cfg.KeyEncryptSalt)
 	log.Printf("Server started on %s", cfg.ListenAddr)
 	if err := srv.Start(cfg.ListenAddr); err != nil {
 		log.Fatalf("server error: %v", err)

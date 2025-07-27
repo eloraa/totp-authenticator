@@ -13,6 +13,12 @@ import (
 
 	"encoding/base32"
 
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"
+	"errors"
+	"io"
+
 	"github.com/pquerna/otp/totp"
 	"google.golang.org/protobuf/proto"
 )
@@ -124,4 +130,81 @@ func ExtractServiceNameFromKey(key string) string {
 func base32NoPadEncode(b []byte) string {
 	enc := base32.StdEncoding.WithPadding(base32.NoPadding)
 	return enc.EncodeToString(b)
+}
+
+func EncryptKey(plain, salt string) (string, error) {
+	hash := sha256.Sum256([]byte(salt))
+	block, err := aes.NewCipher(hash[:])
+	if err != nil {
+		return "", err
+	}
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return "", err
+	}
+	nonce := make([]byte, gcm.NonceSize())
+	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
+		return "", err
+	}
+	ciphertext := gcm.Seal(nonce, nonce, []byte(plain), nil)
+	return base64.StdEncoding.EncodeToString(ciphertext), nil
+}
+
+func DecryptKey(ciphertextB64, salt string) (string, error) {
+	hash := sha256.Sum256([]byte(salt))
+	block, err := aes.NewCipher(hash[:])
+	if err != nil {
+		return "", err
+	}
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return "", err
+	}
+	ciphertext, err := base64.StdEncoding.DecodeString(ciphertextB64)
+	if err != nil {
+		return "", err
+	}
+	if len(ciphertext) < gcm.NonceSize() {
+		return "", errors.New("ciphertext too short")
+	}
+	nonce := ciphertext[:gcm.NonceSize()]
+	ciphertext = ciphertext[gcm.NonceSize():]
+	plain, err := gcm.Open(nil, nonce, ciphertext, nil)
+	if err != nil {
+		return "", err
+	}
+	return string(plain), nil
+}
+
+func GenerateMigrationURL(pairs [][2]string) (string, error) {
+	var params []*otpauthpb.OTPParameters
+	for _, pair := range pairs {
+		name, secret := pair[0], pair[1]
+		secretBytes, err := base32.StdEncoding.WithPadding(base32.NoPadding).DecodeString(strings.ToUpper(secret))
+		if err != nil {
+			continue
+		}
+		params = append(params, &otpauthpb.OTPParameters{
+			Secret:    secretBytes,
+			Name:      name,
+			Issuer:    "",
+			Algorithm: otpauthpb.Algorithm_ALGORITHM_SHA1,
+			Digits:    otpauthpb.DigitCount_DIGIT_COUNT_SIX,
+			Type:      otpauthpb.OTPType_OTP_TYPE_TOTP,
+			Counter:   0,
+		})
+	}
+	if len(params) == 0 {
+		return "", errors.New("no valid secrets")
+	}
+	payload := &otpauthpb.MigrationPayload{
+		OtpParameters: params,
+		Version:       1,
+	}
+	b, err := proto.Marshal(payload)
+	if err != nil {
+		return "", err
+	}
+	data := base64.StdEncoding.EncodeToString(b)
+	return "otpauth-migration://offline?data=" + data, nil
 }

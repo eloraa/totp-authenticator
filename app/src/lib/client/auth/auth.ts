@@ -13,8 +13,10 @@ export const authClient = createAuthClient({
       },
       promptOptions: {
         baseDelay: 1000,
-        maxAttempts: 5,
+        maxAttempts: 1,
       },
     }),
   ],
 });
+
+export const { signIn, signUp, useSession } = createAuthClient();

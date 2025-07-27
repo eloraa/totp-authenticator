@@ -1,8 +1,12 @@
 import type { Metadata, Viewport } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { getTheme } from '@/lib/server/theme';
+import { OneTapPrompt } from '@/components/auth/onetap-prompt';
+import { auth } from '@/lib/server/auth';
+import { ThemeInitializer } from '@/components/theme/theme-initializer';
+import { Toaster } from '@/components/ui/sonner';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -30,15 +34,24 @@ export async function generateViewport(): Promise<Viewport> {
   };
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const session = await auth.api.getSession({ headers: await headers() });
+
+  const cookieStore = await cookies();
+  const { theme } = getTheme({ cookies: cookieStore });
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
       <body>
-        <div style={{ display: 'contents' }}>{children}</div>
+        <div style={{ display: 'contents', height: '100%' }}>
+          {children}
+          {!session && <OneTapPrompt />}
+          <ThemeInitializer selectedTheme={theme} />
+          <Toaster />
+        </div>
       </body>
     </html>
   );

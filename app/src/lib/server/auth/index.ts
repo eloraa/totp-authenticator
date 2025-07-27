@@ -9,7 +9,7 @@ export const auth = betterAuth({
     provider: 'pg',
   }),
   emailAndPassword: {
-    enabled: true,
+    enabled: false,
   },
   socialProviders: {
     google: {
