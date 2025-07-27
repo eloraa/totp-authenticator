@@ -2,6 +2,7 @@ import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { nextCookies } from 'better-auth/next-js';
 import { db } from '../db';
+import { oneTap } from 'better-auth/plugins';
 
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
@@ -19,5 +20,5 @@ export const auth = betterAuth({
 
   trustedOrigins: ['localhost:3000'],
 
-  plugins: [nextCookies()],
+  plugins: [nextCookies(), oneTap()],
 });

@@ -102,3 +102,5 @@ export const MeshGradient: React.FC<MeshGradientProps> = memo(function MeshGradi
 
   return <ShaderMount {...props} speed={speed} frame={frame} fragmentShader={meshGradientFragmentShader} uniforms={uniforms} />;
 }, colorPropsAreEqual);
+
+

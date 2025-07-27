@@ -21,6 +21,7 @@ export interface ShaderMountProps extends Omit<React.ComponentProps<'div'>, 'col
   minPixelRatio?: number;
   maxPixelCount?: number;
   webGlContextAttributes?: WebGLContextAttributes;
+  quality?: number;
 }
 
 export interface ShaderComponentProps extends Omit<React.ComponentProps<'div'>, 'color' | 'ref'> {
@@ -28,6 +29,7 @@ export interface ShaderComponentProps extends Omit<React.ComponentProps<'div'>, 
   minPixelRatio?: number;
   maxPixelCount?: number;
   webGlContextAttributes?: WebGLContextAttributes;
+  quality?: number;
 }
 
 /** Parse the provided uniforms, turning URL strings into loaded images */
@@ -95,7 +97,7 @@ async function processUniforms(uniformsProp: ShaderMountUniformsReact): Promise<
  * If you pass a string as a uniform value, it will be assumed to be a URL and attempted to be loaded as an image
  */
 export const ShaderMount: React.FC<ShaderMountProps> = forwardRef<PaperShaderElement, ShaderMountProps>(function ShaderMountImpl(
-  { fragmentShader, uniforms: uniformsProp, webGlContextAttributes, speed = 0, frame = 0, minPixelRatio, maxPixelCount, ...divProps },
+  { fragmentShader, uniforms: uniformsProp, webGlContextAttributes, speed = 0, frame = 0, minPixelRatio, maxPixelCount, quality = 1, ...divProps },
   forwardedRef
 ) {
   const [isInitialized, setIsInitialized] = useState(false);
@@ -106,9 +108,21 @@ export const ShaderMount: React.FC<ShaderMountProps> = forwardRef<PaperShaderEle
   useEffect(() => {
     const initShader = async () => {
       const uniforms = await processUniforms(uniformsProp);
+      const adjustedMinPixelRatio = minPixelRatio ? minPixelRatio * quality : quality < 1 ? quality * 2 : undefined;
+      const adjustedMaxPixelCount = maxPixelCount ? maxPixelCount * (quality * quality) : undefined;
 
       if (divRef.current && !shaderMountRef.current) {
-        shaderMountRef.current = new ShaderMountVanilla(divRef.current, fragmentShader, uniforms, webGlContextAttributes, speed, frame, minPixelRatio, maxPixelCount);
+        shaderMountRef.current = new ShaderMountVanilla(
+          divRef.current, 
+          fragmentShader, 
+          uniforms, 
+          webGlContextAttributes, 
+          speed, 
+          frame, 
+          adjustedMinPixelRatio, 
+          adjustedMaxPixelCount,
+          quality
+        );
 
         setIsInitialized(true);
       }
@@ -120,7 +134,7 @@ export const ShaderMount: React.FC<ShaderMountProps> = forwardRef<PaperShaderEle
       shaderMountRef.current?.dispose();
       shaderMountRef.current = null;
     };
-  }, [fragmentShader, webGlContextAttributes, frame, maxPixelCount, minPixelRatio, speed, uniformsProp]);
+  }, [fragmentShader, webGlContextAttributes, frame, maxPixelCount, minPixelRatio, speed, uniformsProp, quality]);
 
   // Uniforms
   useEffect(() => {
@@ -139,21 +153,34 @@ export const ShaderMount: React.FC<ShaderMountProps> = forwardRef<PaperShaderEle
 
   // Max Pixel Count
   useEffect(() => {
-    shaderMountRef.current?.setMaxPixelCount(maxPixelCount);
-  }, [maxPixelCount, isInitialized]);
+    const adjustedMaxPixelCount = maxPixelCount ? maxPixelCount * (quality * quality) : undefined;
+    shaderMountRef.current?.setMaxPixelCount(adjustedMaxPixelCount);
+  }, [maxPixelCount, quality, isInitialized]);
 
   // Min Pixel Ratio
   useEffect(() => {
-    shaderMountRef.current?.setMinPixelRatio(minPixelRatio);
-  }, [minPixelRatio, isInitialized]);
+    const adjustedMinPixelRatio = minPixelRatio ? minPixelRatio * quality : quality < 1 ? quality * 2 : undefined;
+    shaderMountRef.current?.setMinPixelRatio(adjustedMinPixelRatio);
+  }, [minPixelRatio, quality, isInitialized]);
 
   // Frame
   useEffect(() => {
     shaderMountRef.current?.setFrame(frame);
   }, [frame, isInitialized]);
 
+  // Quality
+  useEffect(() => {
+    shaderMountRef.current?.setQuality(quality);
+  }, [quality, isInitialized]);
+
   const mergedRef = useMergeRefs([divRef, forwardedRef]) as unknown as React.RefObject<HTMLDivElement>;
   return <div ref={mergedRef} {...divProps} />;
 });
 
 ShaderMount.displayName = 'ShaderMount';
+
+
+
+
+
+

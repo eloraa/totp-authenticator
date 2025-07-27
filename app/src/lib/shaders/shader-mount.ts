@@ -30,6 +30,7 @@ export class ShaderMount {
   private maxPixelCount;
   private isSafari = isSafari();
   private uniformCache: Record<string, boolean | number | number[] | number[][] | HTMLImageElement | string | undefined> = {};
+  private quality = 1;
 
   constructor(
     /** The div you'd like to mount the shader to. The shader will match its size. */
@@ -53,7 +54,9 @@ export class ShaderMount {
      *
      * May be reduced to improve performance or increased to improve quality on high-resolution screens.
      */
-    maxPixelCount: number = DEFAULT_MAX_PIXEL_COUNT
+    maxPixelCount: number = DEFAULT_MAX_PIXEL_COUNT,
+    /** Quality multiplier to scale down resolution (0-1) */
+    quality = 1
   ) {
     if (parentElement instanceof HTMLElement) {
       this.parentElement = parentElement as PaperShaderElement;
@@ -78,6 +81,7 @@ export class ShaderMount {
     this.currentFrame = frame;
     this.minPixelRatio = minPixelRatio;
     this.maxPixelCount = maxPixelCount;
+    this.quality = quality;
 
     const gl = canvasElement.getContext('webgl2', webGlContextAttributes);
     if (!gl) {
@@ -226,7 +230,7 @@ export class ShaderMount {
     // Prevent the total rendered pixel count from exceeding maxPixelCount
     const maxPixelCountHeadroom = Math.sqrt(this.maxPixelCount) / Math.sqrt(targetPixelWidth * targetPixelHeight);
 
-    const newRenderScale = targetRenderScale * Math.min(1, maxPixelCountHeadroom);
+    const newRenderScale = targetRenderScale * Math.min(1, maxPixelCountHeadroom) * this.quality;
     const newWidth = Math.round(this.parentWidth * newRenderScale);
     const newHeight = Math.round(this.parentHeight * newRenderScale);
 
@@ -490,6 +494,12 @@ export class ShaderMount {
     this.render(performance.now());
   };
 
+  /** Set the quality multiplier to scale down resolution (0-1) */
+  public setQuality = (newQuality: number = 1): void => {
+    this.quality = newQuality;
+    this.handleResize();
+  };
+
   /** Dispose of the shader mount, cleaning up all of the WebGL resources */
   public dispose = (): void => {
     // Immediately mark as disposed to prevent future renders from leaking in
@@ -649,3 +659,5 @@ function isSafari() {
   const ua = navigator.userAgent.toLowerCase();
   return ua.includes('safari') && !ua.includes('chrome') && !ua.includes('android');
 }
+
+
