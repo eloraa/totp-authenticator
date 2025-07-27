@@ -29,7 +29,7 @@ export class ShaderMount {
   private minPixelRatio;
   private maxPixelCount;
   private isSafari = isSafari();
-  private uniformCache: Record<string, unknown> = {};
+  private uniformCache: Record<string, boolean | number | number[] | number[][] | HTMLImageElement | string | undefined> = {};
 
   constructor(
     /** The div you'd like to mount the shader to. The shader will match its size. */
@@ -349,10 +349,10 @@ export class ShaderMount {
   };
 
   /** Utility: recursive equality test for all the uniforms */
-  private areUniformValuesEqual = (a: any, b: any): boolean => {
+  private areUniformValuesEqual = (a: boolean | number | number[] | number[][] | HTMLImageElement | string | undefined, b: boolean | number | number[] | number[][] | HTMLImageElement | string | undefined): boolean => {
     if (a === b) return true;
     if (Array.isArray(a) && Array.isArray(b) && a.length === b.length) {
-      return a.every((val, i) => this.areUniformValuesEqual(val, (b as any)[i]));
+      return a.every((val, i) => this.areUniformValuesEqual(val, b[i]));
     }
     return false;
   };
