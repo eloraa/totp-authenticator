@@ -1,0 +1,6 @@
+[submodule "app"]
+	path = app
+	url = https://github.com/eloraa/totp-auth-next-app
+[submodule "server"]
+	path = server
+	url = https://github.com/eloraa/totp-auth-server
